@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BaZi Chart Reading · Four Pillars, in Plain English</title>
+<!--
+BaZi (Four Pillars) reading — international edition, single file.
+- Chart engine: lunar-javascript (6tail) via jsDelivr CDN. All calendar calls are wrapped in
+  computeChart(), identical in logic and conventions to the Chinese v2 edition.
+  DEPLOYMENT NOTE: when deploying, localize the library exactly as v2 did — download lunar.js
+  (lunar-javascript@1.7.8) next to this file and change the script src below to "./lunar.js".
+- Everything is computed locally in the browser: no external APIs (other than the calendar
+  library above), no accounts, no data collection, nothing is uploaded or stored.
+- Premium section: PAYMENT_LINK at the top of the main script is the ONLY payment-related
+  placeholder. Empty = "Coming soon" disabled button. No payment processing code exists here.
+-->
+<script src="./lunar.js"></script>
+<style>
+:root{
+--bg:#0d0f14; --bg2:#11141b; --surface:#171b24; --surface2:#1e242f;
+--gold:#c9a227; --gold-light:#e8cf7a; --text:#ece9e2; --muted:#9d988c; --line:#2b303c;
+--jin:#d9a441; --mu:#5da85f; --shui:#5b8dd9; --huo:#e0654f; --tu:#c2a15c;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+color:var(--text); min-height:100vh; line-height:1.6;
+}
+#bgCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55;}
+.wrap{max-width:760px;margin:0 auto;padding:0 18px 48px;position:relative;z-index:1;}
+header{text-align:center;padding:44px 0 10px;}
+header .kicker{
+display:inline-block;border:1px solid var(--gold);color:var(--gold-light);
+border-radius:999px;padding:3px 14px;font-size:11.5px;letter-spacing:3px;text-transform:uppercase;
+animation:fadeDown 1s .1s both;
+}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:none;}}
+header h1{
+margin:14px 0 0;font-size:36px;font-weight:800;letter-spacing:.5px;line-height:1.2;
+animation:fadeDown 1.1s .25s both;
+}
+header h1 .gold{
+background:linear-gradient(100deg,#e8cf7a 20%,#fff6d8 40%,#c9a227 60%,#e8cf7a 80%);
+background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+animation:goldShine 5s 1.4s ease-in-out infinite;
+}
+@keyframes goldShine{0%,100%{background-position:0% 0;}50%{background-position:100% 0;}}
+header p{margin:10px auto 0;font-size:14.5px;color:var(--muted);max-width:520px;animation:fadeDown 1s .45s both;}
+.sndbar{margin-top:16px;animation:fadeDown 1s .6s both;}
+.sndbar button{
+font-family:inherit;font-size:12.5px;cursor:pointer;color:var(--muted);
+background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 16px;
+transition:color .15s,border-color .15s,transform .1s;
+}
+.sndbar button:active{transform:scale(.95);}
+.sndbar button.on{color:var(--gold-light);border-color:var(--gold);}
+.panel{
+background:var(--surface);border:1px solid var(--line);border-radius:16px;
+padding:22px 20px;margin-top:22px;
+}
+.panel h2{margin:0 0 16px;font-size:16px;font-weight:700;letter-spacing:.4px;color:var(--text);}
+.panel h2 .accent{color:var(--gold);}
+label.field{display:block;margin-bottom:16px;font-size:14px;}
+label.field > span{display:block;margin-bottom:7px;color:var(--text);font-weight:600;font-size:13.5px;}
+label.field small{display:block;margin-top:6px;color:var(--muted);font-size:12px;line-height:1.55;}
+input[type="date"],input[type="time"],input[type="text"],select{
+width:100%;padding:12px;font-size:16px;font-family:inherit;color:var(--text);
+background:var(--bg2);border:1px solid var(--line);border-radius:10px;outline:none;color-scheme:dark;
+}
+input:focus,select:focus{border-color:var(--gold);}
+input:disabled{opacity:.45;}
+.row{display:flex;gap:12px;}
+.row > *{flex:1;}
+.gender{display:flex;gap:10px;}
+.gender label{
+flex:1;text-align:center;padding:12px 0;border:1px solid var(--line);border-radius:10px;
+font-size:15px;cursor:pointer;background:var(--bg2);transition:background .15s,border-color .15s,transform .1s;
+}
+.gender label:active{transform:scale(.97);}
+.gender input{display:none;}
+.gender label.on{background:var(--gold);color:#141414;border-color:var(--gold);font-weight:700;}
+button.go{
+width:100%;padding:15px;font-size:16.5px;font-family:inherit;font-weight:700;letter-spacing:.4px;
+color:#141414;background:linear-gradient(180deg,var(--gold-light),var(--gold));
+border:none;border-radius:12px;cursor:pointer;margin-top:4px;
+transition:transform .12s,box-shadow .2s;box-shadow:0 6px 22px rgba(201,162,39,.25);
+}
+button.go:hover{transform:translateY(-1px);box-shadow:0 9px 28px rgba(201,162,39,.32);}
+button.go:active{transform:scale(.98);}
+.err{display:none;background:#3a1d1a;border:1px solid #a14a3c;border-radius:10px;color:#f0b8ae;
+padding:11px 13px;font-size:14px;margin-top:14px;line-height:1.6;}
+.tip{font-size:12px;color:var(--muted);line-height:1.7;margin-top:12px;}
+/* ===== Result card ===== */
+#result{display:none;margin-top:24px;}
+#result.show{display:block;animation:cardIn .55s cubic-bezier(.2,.9,.3,1.2) both;}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(.98);}to{opacity:1;transform:none;}}
+.share-card{
+background:var(--surface);border:1px solid var(--gold);border-radius:18px;overflow:hidden;
+box-shadow:0 18px 50px rgba(0,0,0,.5);
+}
+.share-card.shake{animation:shk .28s ease-in-out;}
+@keyframes shk{0%,100%{transform:translateX(0);}25%{transform:translateX(-3px) rotate(-.25deg);}55%{transform:translateX(3px) rotate(.25deg);}80%{transform:translateX(-1px);}}
+.share-head{padding:22px 18px 18px;text-align:center;border-bottom:1px solid var(--line);background:var(--surface2);}
+.share-head .t{font-size:21px;font-weight:800;letter-spacing:1px;}
+.share-head .t .zh{color:var(--gold-light);font-weight:600;}
+.share-head .s{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.7;}
+.share-body{padding:20px 18px 8px;}
+.share-foot{
+padding:14px 18px 18px;text-align:center;color:var(--muted);font-size:12px;line-height:1.75;
+border-top:1px dashed var(--line);margin:12px 18px 0;
+}
+.sec-title{font-size:15.5px;font-weight:700;color:var(--text);margin:22px 0 10px;letter-spacing:.3px;}
+.sec-title .zh{color:var(--gold);font-size:13px;font-weight:600;margin-left:6px;}
+table.pan{width:100%;border-collapse:collapse;font-size:14px;background:var(--bg2);border-radius:10px;overflow:hidden;}
+table.pan th,table.pan td{border:1px solid var(--line);padding:9px 4px;text-align:center;vertical-align:top;}
+table.pan th{background:var(--surface2);color:var(--gold-light);font-size:12.5px;letter-spacing:.6px;}
+table.pan td.lab{background:var(--surface2);font-weight:600;color:var(--muted);width:86px;font-size:12px;text-align:left;padding-left:10px;}
+td.stamp{animation:stampIn .5s cubic-bezier(.2,1.4,.4,1) both,stampFlash .55s ease-out both;}
+@keyframes stampIn{0%{opacity:0;transform:translateY(-26px) scale(1.6) rotate(-4deg);}55%{opacity:1;transform:translateY(2px) scale(.94) rotate(.5deg);}78%{transform:translateY(0) scale(1.03);}100%{opacity:1;transform:scale(1);}}
+@keyframes stampFlash{0%{box-shadow:inset 0 0 0 0 rgba(201,162,39,0);}45%{box-shadow:inset 0 0 0 3px rgba(201,162,39,.85),inset 0 0 18px rgba(201,162,39,.3);}100%{box-shadow:inset 0 0 0 0 rgba(201,162,39,0);}}
+.gz{font-size:25px;font-weight:800;line-height:1.15;}
+.gz .pinyin{display:block;font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:1px;margin-top:2px;}
+.gz .gan-jin{color:var(--jin);}.gz .gan-mu{color:var(--mu);}.gz .gan-shui{color:var(--shui);}
+.gz .gan-huo{color:var(--huo);}.gz .gan-tu{color:var(--tu);}
+.sub{font-size:11.5px;color:var(--muted);line-height:1.55;}
+.sub .en{display:block;font-size:10.5px;}
+.daymaster{
+display:flex;gap:14px;align-items:center;background:var(--bg2);border:1px solid var(--line);
+border-radius:12px;padding:14px 16px;margin:16px 0;
+}
+.daymaster .big{
+font-size:34px;font-weight:800;width:62px;height:62px;flex:0 0 62px;border-radius:50%;
+display:flex;align-items:center;justify-content:center;color:#141414;
+background:linear-gradient(160deg,var(--gold-light),var(--gold));
+}
+.daymaster .txt{font-size:13.5px;line-height:1.75;}
+.daymaster .txt b{color:var(--gold-light);}
+.wx-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13.5px;}
+.wx-row .name{width:86px;font-weight:600;}
+.wx-row .name .zh{color:var(--muted);font-size:11.5px;margin-left:4px;}
+.wx-row .bar{flex:1;height:13px;background:var(--surface2);border-radius:7px;overflow:hidden;}
+.wx-row .fill{height:100%;border-radius:7px;width:0;transition:width 1s cubic-bezier(.25,.8,.3,1);}
+.wx-row .num{width:44px;color:var(--muted);font-size:12.5px;text-align:right;}
+.strength{display:flex;gap:9px;margin:10px 0;}
+.strength .chk{
+flex:1;text-align:center;border:1px solid var(--line);border-radius:10px;padding:10px 4px;background:var(--bg2);
+font-size:12px;line-height:1.6;color:var(--muted);
+}
+.strength .chk b{display:block;font-size:13.5px;color:var(--text);}
+.strength .chk.yes{border-color:var(--gold);background:rgba(201,162,39,.08);}
+table.yun{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--bg2);}
+table.yun th,table.yun td{border:1px solid var(--line);padding:8px 4px;text-align:center;}
+table.yun th{background:var(--surface2);color:var(--gold-light);font-size:12px;letter-spacing:.5px;}
+table.yun td.gzcell{font-size:16.5px;font-weight:700;letter-spacing:1px;}
+table.yun td.gzcell .py{display:block;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.5px;}
+tr.yun-in{animation:yunIn .6s ease-out both;}
+@keyframes yunIn{from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:none;}}
+/* ===== Plain-English reading ===== */
+.plain{margin-top:8px;}
+.plain > h2{font-size:17px;margin:26px 0 2px;font-weight:800;}
+.plain > h2 .zh{color:var(--gold);font-size:13.5px;font-weight:600;margin-left:6px;}
+.plain .lead{font-size:12.5px;color:var(--muted);margin:6px 0 0;line-height:1.7;}
+.psec{margin-top:18px;}
+.psec h3{margin:0 0 8px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px;}
+.psec h3 .no{
+flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#141414;
+font-size:12.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;
+}
+.psec p{margin:0 0 9px;font-size:14px;line-height:1.85;}
+.psec p:last-child{margin-bottom:0;}
+.psec .concl{font-weight:700;color:var(--gold-light);}
+.psec .basis{font-size:13px;color:#c9c2b2;background:rgba(201,162,39,.07);border-left:3px solid var(--gold);
+padding:8px 11px;border-radius:0 8px 8px 0;line-height:1.8;}
+ul.keys{margin:4px 0 8px;padding:0;list-style:none;}
+ul.keys li{
+font-size:14px;line-height:1.75;padding:9px 12px;margin-bottom:8px;background:var(--bg2);
+border:1px solid var(--line);border-radius:10px;
+}
+ul.keys li b{color:var(--gold-light);}
+.ss-item{margin-bottom:12px;}
+.ss-item .ss-name{
+display:inline-block;font-weight:700;color:#141414;background:var(--gold-light);
+border-radius:6px;padding:1px 9px;font-size:13px;margin-right:7px;
+}
+.ss-item .ss-name .zh{font-weight:600;opacity:.75;}
+.ss-item .ss-pos{font-size:12px;color:var(--gold);font-weight:700;}
+.ss-item p{display:inline;font-size:14px;line-height:1.85;}
+.yun-note{font-size:13.5px;line-height:1.85;margin-bottom:10px;}
+.yun-note b{color:var(--gold-light);}
+.fade-sec{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease;}
+.fade-sec.vis{opacity:1;transform:none;}
+/* ===== Premium ===== */
+.premium{
+margin-top:26px;border:1px solid var(--gold);border-radius:16px;overflow:hidden;
+background:linear-gradient(170deg,rgba(201,162,39,.10),rgba(201,162,39,.02) 55%),var(--surface);
+}
+.premium .p-head{padding:20px 20px 6px;text-align:center;}
+.premium .p-head .tag{
+display:inline-block;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#141414;
+background:linear-gradient(180deg,var(--gold-light),var(--gold));border-radius:999px;padding:3px 12px;font-weight:800;
+}
+.premium .p-head h3{margin:12px 0 6px;font-size:20px;font-weight:800;}
+.premium .p-head p{margin:0 auto;font-size:13.5px;color:var(--muted);max-width:480px;line-height:1.7;}
+.premium .p-body{padding:8px 20px 4px;}
+.p-feat{margin-top:16px;}
+.p-feat h4{margin:0 0 8px;font-size:14.5px;font-weight:700;}
+.p-feat h4 .zh{color:var(--gold);font-size:12.5px;font-weight:600;margin-left:5px;}
+.p-row{
+display:flex;gap:10px;align-items:baseline;font-size:13.5px;line-height:1.7;
+padding:8px 11px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--bg2);
+}
+.p-row .yr{flex:0 0 118px;font-weight:700;color:var(--gold-light);}
+.p-row.locked{color:var(--muted);}
+.p-row.locked .blur{filter:blur(5px);user-select:none;flex:1;}
+.p-row .lock{flex:0 0 auto;font-size:12px;color:var(--gold);}
+.p-cta{padding:16px 20px 22px;text-align:center;}
+.p-cta .price-note{font-size:12.5px;color:var(--muted);margin-bottom:12px;}
+a.p-btn,button.p-btn{
+display:inline-block;width:100%;padding:14px;font-size:16px;font-family:inherit;font-weight:700;
+color:#141414;background:linear-gradient(180deg,var(--gold-light),var(--gold));
+border:none;border-radius:12px;cursor:pointer;text-decoration:none;
+transition:transform .12s,box-shadow .2s;box-shadow:0 6px 22px rgba(201,162,39,.25);
+}
+a.p-btn:hover{transform:translateY(-1px);}
+button.p-btn:disabled{
+background:var(--surface2);color:var(--muted);cursor:not-allowed;box-shadow:none;
+border:1px dashed var(--line);
+}
+footer.site{text-align:center;color:var(--muted);font-size:12px;line-height:1.85;padding:22px 10px 0;}
+@media (max-width:480px){.gz{font-size:21px;} header h1{font-size:29px;} .p-row .yr{flex-basis:96px;} .strength{flex-direction:column;}}
+@media (prefers-reduced-motion: reduce){
+*,*::before,*::after{animation-duration:.01s !important;animation-iteration-count:1 !important;transition-duration:.01s !important;}
+.fade-sec{opacity:1;transform:none;}
+}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+<div class="wrap">
+<header>
+<div class="kicker">BaZi · Four Pillars of Destiny</div>
+<h1>Your BaZi Chart, <span class="gold">Explained in Plain English</span></h1>
+<p>Enter your birth date and time. Get your full Four Pillars chart — Day Master, Five Elements, Ten Gods and Luck Pillars — with a reading written for humans, not textbooks.</p>
+<div class="sndbar">
+<button type="button" id="sndBtn">♪ Sound: Off</button>
+</div>
+</header>
+
+<section class="panel">
+<h2>Your birth details <span class="accent">·</span> 出生信息</h2>
+<label class="field"><span>Date of birth (Gregorian calendar)</span>
+<input type="date" id="birthDate" min="1900-01-01" max="2100-12-31">
+</label>
+<div class="row">
+<label class="field"><span>Time of birth (hour : minute)</span>
+<input type="time" id="birthTime">
+<small>Best if you know the exact time — the Hour Pillar depends on it.</small>
+</label>
+<label class="field"><span>Or just the two-hour block</span>
+<select id="shichen">
+<option value="">— Earthly Branch hour —</option>
+<option value="0">Zi 子 · 23:00–00:59</option>
+<option value="2">Chou 丑 · 01:00–02:59</option>
+<option value="4">Yin 寅 · 03:00–04:59</option>
+<option value="6">Mao 卯 · 05:00–06:59</option>
+<option value="8">Chen 辰 · 07:00–08:59</option>
+<option value="10">Si 巳 · 09:00–10:59</option>
+<option value="12">Wu 午 · 11:00–12:59</option>
+<option value="14">Wei 未 · 13:00–14:59</option>
+<option value="16">Shen 申 · 15:00–16:59</option>
+<option value="18">You 酉 · 17:00–18:59</option>
+<option value="20">Xu 戌 · 19:00–20:59</option>
+<option value="22">Hai 亥 · 21:00–22:59</option>
+</select>
+<small>If you only pick a block, we use its midpoint as an approximation.</small>
+</label>
+</div>
+<label class="field"><span>Gender</span>
+<div class="gender" id="genderBox">
+<label class="on"><input type="radio" name="gender" value="1" checked>Male 男</label>
+<label><input type="radio" name="gender" value="0">Female 女</label>
+</div>
+<small>Gender is used only to set the direction of the Luck Pillars (forward for yang-year males / yin-year females, otherwise reversed).</small>
+</label>
+<label class="field"><span>Place of birth (true solar time correction)</span>
+<input type="text" id="birthPlace" placeholder="Not enabled in this edition" disabled>
+<small>True solar time correction is not enabled yet; the chart is calculated on Beijing time (UTC+8 standard time).</small>
+</label>
+<button class="go" id="goBtn">Reveal My Chart</button>
+<div class="err" id="errBox"></div>
+<p class="tip">Everything is calculated locally in your browser. Nothing is uploaded, stored or tracked.</p>
+</section>
+
+<div id="result">
+<div class="share-card" id="shareCard">
+<div class="share-head">
+<div class="t">Your Chart <span class="zh">· 命盘</span></div>
+<div class="s" id="headInfo"></div>
+</div>
+<div class="share-body">
+<table class="pan" id="panTable"></table>
+
+<div class="daymaster">
+<div class="big" id="dmBig">—</div>
+<div class="txt" id="dmTxt"></div>
+</div>
+
+<div class="sec-title">Five Elements <span class="zh">五行分布</span></div>
+<div id="wxBars"></div>
+<p class="tip" id="wxNote"></p>
+
+<div class="sec-title">Day Master Strength — the simple check <span class="zh">日主强弱</span></div>
+<div class="strength" id="strengthBox"></div>
+<p class="tip" id="strengthNote"></p>
+
+<div class="sec-title">Luck Pillars <span class="zh">大运</span></div>
+<p class="tip" id="yunInfo" style="margin:0 0 8px;"></p>
+<table class="yun" id="yunTable"></table>
+
+<div class="plain" id="plainBox"></div>
+
+<div class="premium" id="premiumBox"></div>
+</div>
+<div class="share-foot">
+This page is a cultural and entertainment reading. The interpretation is assembled locally from fixed templates based on your chart.<br>
+<b>For entertainment only — not a substitute for professional advice on any decision.</b><br>
+<span style="color:var(--gold);letter-spacing:1px;">— Screenshot this card to share —</span>
+</div>
+</div>
+</div>
+
+<footer class="site">
+Calendar engine: lunar-javascript (6tail) · Month Pillar by solar terms; Day/Hour Pillars use the library's default school (sect=2).<br>
+For entertainment and cultural interest only.
+</footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+CONFIG — the single payment placeholder for the Premium section.
+Leave empty: the Premium button shows "Coming Soon" and is disabled.
+Set to a checkout URL later: the button becomes a link to that URL.
+No payment processing, accounts or keys exist anywhere in this file.
+============================================================ */
+const PAYMENT_LINK = "";
+
+function computeChart(input){
+if (typeof Solar === "undefined") {
+throw new Error("历法库加载失败（CDN 不可用），请联网后刷新页面重试。");
+}
+var solar = Solar.fromYmdHms(input.year, input.month, input.day, input.hour, input.minute, 0);
+var lunar = solar.getLunar();
+var ec = lunar.getEightChar();
+
+function pillar(gan, zhi, hideGan, naYin, shiShenGan, shiShenZhi){
+return { gan:gan, zhi:zhi, ganZhi:gan+zhi, hideGan:hideGan, naYin:naYin,
+shiShenGan:shiShenGan, shiShenZhi:shiShenZhi};
+}
+var pillars = [
+pillar(ec.getYearGan(), ec.getYearZhi(), ec.getYearHideGan(), ec.getYearNaYin(), ec.getYearShiShenGan(), ec.getYearShiShenZhi()),
+pillar(ec.getMonthGan(), ec.getMonthZhi(), ec.getMonthHideGan(), ec.getMonthNaYin(), ec.getMonthShiShenGan(), ec.getMonthShiShenZhi()),
+pillar(ec.getDayGan(), ec.getDayZhi(), ec.getDayHideGan(), ec.getDayNaYin(), ec.getDayShiShenGan(), ec.getDayShiShenZhi()),
+pillar(ec.getTimeGan(), ec.getTimeZhi(), ec.getTimeHideGan(), ec.getTimeNaYin(), ec.getTimeShiShenGan(), ec.getTimeShiShenZhi())
+];
+
+var yun = ec.getYun(input.gender); // gender: 1 男 0 女（库约定）
+var daYun = [];
+var list = yun.getDaYun();
+for (var i = 1; i < list.length && daYun.length < 8; i++){ // 第 0 步是起运前的空运，跳过
+daYun.push({
+ganZhi: list[i].getGanZhi(),
+startAge: list[i].getStartAge(), endAge: list[i].getEndAge(),
+startYear: list[i].getStartYear(), endYear: list[i].getEndYear()
+});
+}
+return {
+lunarText: lunar.toString(),
+pillars: pillars,
+dayGan: ec.getDayGan(),
+mingGong: ec.getMingGong(), shenGong: ec.getShenGong(), taiYuan: ec.getTaiYuan(),
+yun: {
+forward: yun.isForward(),
+startYear: yun.getStartYear(), startMonth: yun.getStartMonth(), startDay: yun.getStartDay(),
+startSolar: yun.getStartSolar().toYmd()
+},
+daYun: daYun
+};
+}
+
+/* ============================================================
+二、五行 / 十神 / 强弱（简易规则，口径与 v1 一致，写死在注释与页面说明里）
+============================================================ */
+var GAN_WX = {"甲":"木","乙":"木","丙":"火","丁":"火","戊":"土","己":"土","庚":"金","辛":"金","壬":"水","癸":"水"};
+var GAN_YY = {"甲":1,"乙":0,"丙":1,"丁":0,"戊":1,"己":0,"庚":1,"辛":0,"壬":1,"癸":0}; // 1 阳 0 阴
+var WX_LIST = ["金","木","水","火","土"];
+var WX_COLOR = {"金":"var(--jin)","木":"var(--mu)","水":"var(--shui)","火":"var(--huo)","土":"var(--tu)"};
+var WX_CLASS = {"金":"gan-jin","木":"gan-mu","水":"gan-shui","火":"gan-huo","土":"gan-tu"};
+/* 五行生克：SHENG[x] = x 所生；KE[x] = x 所克 */
+var SHENG = {"木":"火","火":"土","土":"金","金":"水","水":"木"};
+var KE = {"木":"土","土":"水","水":"火","火":"金","金":"木"};
+function shengWo(wx){ for (var k in SHENG){ if (SHENG[k] === wx) return k;} return "";} // 生我者
+function keWo(wx){ for (var k in KE){ if (KE[k] === wx) return k;} return "";} // 克我者
+
+/* 五行计数口径：四柱天干各 1 + 四柱地支本气（藏干第一位）各 1，共 8 字 */
+function countWuXing(pillars){
+var c = {"金":0,"木":0,"水":0,"火":0,"土":0};
+pillars.forEach(function(p){
+c[GAN_WX[p.gan]]++;
+c[GAN_WX[p.hideGan[0]]]++;
+});
+return c;
+}
+
+/* 十神归组：财 / 官杀 / 印 / 比劫 / 食伤 */
+function shiShenGroup(name){
+if (name === "正财" || name === "偏财") return "财";
+if (name === "正官" || name === "七杀") return "官杀";
+if (name === "正印" || name === "偏印") return "印";
+if (name === "比肩" || name === "劫财") return "比劫";
+if (name === "食神" || name === "伤官") return "食伤";
+return "";
+}
+function countShiShenGroups(pillars){
+var g = {"财":0,"官杀":0,"印":0,"比劫":0,"食伤":0};
+pillars.forEach(function(p, idx){
+if (idx!== 2){ var grp = shiShenGroup(p.shiShenGan); if (grp) g[grp]++;} // 日干为日主本身，不计
+p.shiShenZhi.forEach(function(s){ var grp2 = shiShenGroup(s); if (grp2) g[grp2]++;});
+});
+return g;
+}
+
+/*
+日主强弱（简易版）——得令 / 得地 / 得势 三项检查（与 v1 同口径）：
+得令：月支本气五行同日主（比劫）或生日主（印）；
+得地：年、日、时三支的藏干中，含同日主五行或生日主五行者 ≥ 3 处（计藏干个数）；
+得势：年、月、时三干中，生扶日主（同五行或生我）者 ≥ 2 个。
+满足 2 项以上 → 偏强；1 项 → 中和；0 项 → 偏弱。此为娱乐简易口径，不含通根深浅、合化等细则。
+*/
+function judgeStrength(pillars){
+var dayWx = GAN_WX[pillars[2].gan];
+var yinWx = shengWo(dayWx); // 印的五行
+function fu(gan){ var w = GAN_WX[gan]; return w === dayWx || w === yinWx;}
+
+var monthMain = pillars[1].hideGan[0];
+var deLing = fu(monthMain);
+
+var rootCount = 0;
+[0,2,3].forEach(function(i){ pillars[i].hideGan.forEach(function(g){ if (fu(g)) rootCount++;});});
+var deDi = rootCount >= 3;
+
+var ganFu = 0;
+[0,1,3].forEach(function(i){ if (fu(pillars[i].gan)) ganFu++;});
+var deShi = ganFu >= 2;
+
+var n = (deLing?1:0) + (deDi?1:0) + (deShi?1:0);
+var label = n >= 2? "偏强": (n === 1? "中和": "偏弱");
+return { deLing:deLing, deDi:deDi, deShi:deShi, rootCount:rootCount, ganFu:ganFu, label:label, dayWx:dayWx};
+}
+
+/* 任意天干相对日主的十神（标准规则：同阴阳为偏，唯比劫同阴阳为比肩） */
+function shiShenOf(dayGan, otherGan){
+var dw = GAN_WX[dayGan], ow = GAN_WX[otherGan];
+var same = GAN_YY[dayGan] === GAN_YY[otherGan];
+if (ow === dw) return same? "比肩": "劫财";
+if (SHENG[ow] === dw) return same? "偏印": "正印";   // 生我者为印
+if (SHENG[dw] === ow) return same? "食神": "伤官";   // 我生者为食伤
+if (KE[dw] === ow) return same? "偏财": "正财";      // 我克者为财
+return same? "七杀": "正官";                          // 克我者为官杀
+}
+
+/* ============================================================
+ENGLISH PRESENTATION LAYER
+Internal chart data keeps the original Chinese stem/branch characters
+(the engine's native keys); everything user-facing is translated here.
+============================================================ */
+var WX_EN = {"金":"Metal","木":"Wood","水":"Water","火":"Fire","土":"Earth"};
+var GAN_PY = {"甲":"Jia","乙":"Yi","丙":"Bing","丁":"Ding","戊":"Wu","己":"Ji","庚":"Geng","辛":"Xin","壬":"Ren","癸":"Gui"};
+var ZHI_PY = {"子":"Zi","丑":"Chou","寅":"Yin","卯":"Mao","辰":"Chen","巳":"Si","午":"Wu","未":"Wei","申":"Shen","酉":"You","戌":"Xu","亥":"Hai"};
+var GAN_IMG_EN = {
+"甲":"a towering tree — upright, principled, always reaching upward",
+"乙":"vines and wildflowers — flexible, resilient, quietly persistent",
+"丙":"the sun itself — warm, radiant, impossible to ignore",
+"丁":"a candle flame — gentle, refined, steady in the dark",
+"戊":"a mountain — solid, dependable, in no hurry",
+"己":"garden soil — nurturing, detail-minded, quietly all-embracing",
+"庚":"a forged blade — decisive, direct, built for action",
+"辛":"polished jade and fine jewellery — precise, perceptive, exacting about quality",
+"壬":"a great river — expansive, adaptable, always finding a way through",
+"癸":"rain and morning dew — intuitive, thoughtful, subtle in its influence"
+};
+var WX_CAREER_EN = {
+"木":"education, publishing, culture, healthcare, textiles and anything to do with growth",
+"火":"electronics, energy, food and hospitality, media, entertainment and anything to do with light, heat and attention",
+"土":"property, construction, agriculture, logistics, consulting and anything to do with stability and holding things together",
+"金":"finance, engineering, machinery, automotive, IT hardware, law and anything to do with precision and rules",
+"水":"trade, shipping, travel, distribution, communications and anything to do with flow and movement"
+};
+var WX_ORGAN_EN = {"木":"the liver, gallbladder, tendons and sinews","火":"the heart and small intestine","土":"the spleen, stomach and digestion","金":"the lungs and respiratory system","水":"the kidneys and urinary system"};
+var WX_LIFE_EN = {
+"木":{color:"greens and teals",dir:"the east"},
+"火":{color:"reds and purples",dir:"the south"},
+"土":{color:"yellows, browns and warm creams",dir:"staying local / the centre"},
+"金":{color:"white, silver and pale grey",dir:"the west"},
+"水":{color:"black, navy and deep grey",dir:"the north"}
+};
+var ZHI_SEASON_EN = {"寅":"spring","卯":"spring","辰":"the late-spring seasonal turn","巳":"summer","午":"summer","未":"the late-summer seasonal turn",
+"申":"autumn","酉":"autumn","戌":"the late-autumn seasonal turn","亥":"winter","子":"winter","丑":"the late-winter seasonal turn"};
+var SS_EN = {
+"正财":"Direct Wealth","偏财":"Indirect Wealth","正官":"Direct Officer","七杀":"Seven Killings",
+"正印":"Direct Resource","偏印":"Indirect Resource","食神":"Eating God","伤官":"Hurting Officer",
+"比肩":"Friend","劫财":"Rob Wealth","日主":"Day Master"
+};
+var SS_PLAIN_EN = {
+"正财":"This is earned, steady money — salary, savings, income you can plan a life around. People with strong Direct Wealth tend to be pragmatic with money and good at making it last.",
+"偏财":"This is opportunistic money — business instinct, side income, well-timed deals. It sharpens your nose for opportunity, though money that arrives fast can leave fast too.",
+"正官":"This is structure and reputation — position, responsibility, and the respect of institutions. It usually comes with self-discipline and a preference for doing things the proper way.",
+"七杀":"This is pressure with a purpose — competition, authority and high stakes, like a demanding coach. Handled well it becomes drive and courage; handled badly, anxiety and overwork.",
+"正印":"This is support and learning — mentors, elders, qualifications and a safety net. It tends to bring a love of study and a knack for being helped at exactly the right moment.",
+"偏印":"This is unconventional wisdom — niche skills, intuition and deep-focus research. It often marks people who think differently from the crowd and thrive in specialist work.",
+"食神":"This is talent and enjoyment — expression, craft, creativity and a real taste for life. People strong here often earn best by doing something they genuinely enjoy.",
+"伤官":"This is brilliance with an edge — a quick mind, a sharp tongue and a low tolerance for being managed. A double-edged sword: used well it dazzles; used carelessly it offends.",
+"比肩":"This is your peer circle — siblings, friends, partners — and also your self-respect and independence. Your helpers and your rivals are often the very same people.",
+"劫财":"This is boldness and the social ledger — strong drive and generosity, but money can leak away through friends, partnerships and impulse buys. Keep agreements in writing."
+};
+var POS_NAME_EN = ["Year Pillar","Month Pillar","Day Pillar","Hour Pillar"];
+var POS_PLAIN_EN = {
+"Year Pillar":"Sitting in the Year Pillar, it colours your early years, family background and the support you received from elders.",
+"Month Pillar":"Sitting in the Month Pillar — the most influential seat in the whole chart — it shapes your youth, your career direction and the themes you keep returning to.",
+"Day Pillar":"Sitting in the Day Branch, right next to your core self, it speaks most directly to your inner life and your closest relationships.",
+"Hour Pillar":"Sitting in the Hour Pillar, it points to later life, children, and where things settle in the long run."
+};
+var GROUP_EN = {"财":"Wealth","官杀":"Officer","印":"Resource","比劫":"Peer","食伤":"Output"};
+var GROUP_ONE_EN = {
+"财":"Wealth stars stand out most in your chart — you have a natural radar for money and opportunity, and a practical streak people notice quickly.",
+"官杀":"Officer stars stand out most — responsibility and ambition run deep, and you tend to hold yourself to a demanding standard.",
+"印":"Resource stars stand out most — you value loyalty and learning, and you tend to attract mentors and support when it matters.",
+"比劫":"Peer stars stand out most — independent, loyal and quietly competitive; you dislike being told something can't be done.",
+"食伤":"Output stars stand out most — talent and self-expression lead the way; you are built to earn with skill."
+};
+var STR_LABEL_EN = {"偏强":"Strong","中和":"Balanced","偏弱":"Tender (on the softer side)"};
+
+function ssLabel(name){ return (SS_EN[name] || name) + (name && name !== "日主" ? " " + name : ""); }
+
+/* ---------- Annual (Liu Nian) helpers: stem/branch of any Gregorian year ---------- */
+var GAN10 = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+var ZHI12 = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+function yearGanZhi(y){ return GAN10[(y - 4) % 10] + ZHI12[(y - 4) % 12]; }
+function annualTone(wx, xiWx, jiWx){
+if (xiWx.indexOf(wx) >= 0) return "favourable";
+if (jiWx.indexOf(wx) >= 0) return "handle-with-care";
+return "neutral";
+}
+
+/* ============================================================
+PLAIN-ENGLISH READING (mirrors the depth of the Chinese v2:
+overview / strength & supportive elements / Ten Gods one by one /
+five life areas / Luck Pillars step by step / 2026 year ahead)
+Tone rules: tendencies only, no fatalistic pronouncements;
+health notes are traditional correspondences, never medical claims.
+============================================================ */
+function buildPlain(chart, wx, strength, groups, gender){
+var P = chart.pillars;
+var dayGan = chart.dayGan, dayWx = GAN_WX[dayGan];
+var yinWx = shengWo(dayWx), caiWx = KE[dayWx], guanWx = keWo(dayWx);
+var shangWx = SHENG[dayWx];
+var monthZhi = P[1].zhi, monthMainWx = GAN_WX[P[1].hideGan[0]];
+var season = ZHI_SEASON_EN[monthZhi];
+var topGroup = "", topN = -1;
+for (var g in groups){ if (groups[g] > topN){ topN = groups[g]; topGroup = g; } }
+var sortedWx = WX_LIST.slice().sort(function(a,b){ return wx[a]-wx[b]; });
+var weakest = sortedWx[0], strongestWx = sortedWx[4];
+
+/* Supportive elements — the simple "support vs. release" method （扶抑法）, labelled as such */
+var xiWx = [], jiWx = [], yongNote = "";
+if (strength.label === "偏弱"){ xiWx = [yinWx, dayWx]; jiWx = [guanWx, caiWx];
+yongNote = "Picture your chart as a young tree that hasn't filled out yet. What helps most is nourishment and company: the element that feeds you — Resource (" + WX_EN[yinWx] + ") — and your own element (" + WX_EN[dayWx] + "), which brings allies. The elements that press on you — Officer (" + WX_EN[guanWx] + "), which demands and disciplines — and Wealth (" + WX_EN[caiWx] + "), which costs energy to chase — aren't forbidden, just best approached once your roots are stronger.";
+} else if (strength.label === "偏强"){ xiWx = [shangWx, caiWx, guanWx]; jiWx = [yinWx, dayWx];
+yongNote = "Picture your chart as a reservoir at high water: what you need is a good outlet, not more inflow. Channelling energy outward — Output (" + WX_EN[shangWx] + "), turning effort into results — Wealth (" + WX_EN[caiWx] + ") — and a healthy dose of structure — Officer (" + WX_EN[guanWx] + ") — all work in your favour. Adding more Resource (" + WX_EN[yinWx] + ") or more of your own element (" + WX_EN[dayWx] + ") can tip you into stubbornness or spinning your wheels.";
+} else { xiWx = [weakest]; jiWx = [];
+yongNote = "Your chart is unusually well balanced — nothing is missing badly enough to need topping up, and nothing is so dominant that it needs draining. A light lean toward your scarcest element, " + WX_EN[weakest] + ", is all the fine-tuning this simple method suggests.";
+}
+
+/* —— Section 1: Overview —— */
+var strengthOne = strength.label === "偏强" ? "You were born with a full tank — strong reserves and an engine that likes to be used" :
+strength.label === "偏弱" ? "You were born with a lighter frame — the type who does best by borrowing momentum: the right people, the right platform, the right timing" :
+"You were born well balanced — adaptable, able to push or yield as the situation asks";
+var key1 = strength.label === "偏弱" ? "Your chart wins by leverage: the right team and the right mentor will carry you further than going it alone." :
+strength.label === "偏强" ? "Your chart wins by output: keep the energy moving into work and results, and don't let it curdle into restlessness." :
+"Your chart wins by balance: you have more than one way through most problems — don't marry a single route.";
+var key2 = GROUP_ONE_EN[topGroup] + " It is the trait people tend to remember you by.";
+var key3 = WX_EN[weakest] + " is your scarcest element (just " + wx[weakest] + " of 8 counted). In the traditional correspondences it relates to " + WX_ORGAN_EN[weakest] + " — worth a little extra care in your daily routines.";
+var sec1 = "<div class='psec fade-sec'><h3><span class='no'>1</span>Overview</h3>" +
+"<p><span class='concl'>You are a " + dayGan + " " + GAN_PY[dayGan] + " Day Master — " + WX_EN[dayWx] + ", like " + GAN_IMG_EN[dayGan] + ".</span> You were born in the month of " + monthZhi + " " + ZHI_PY[monthZhi] + " — " + season + ", when the ruling energy is " + WX_EN[monthMainWx] + ". " + strengthOne + ". " + GROUP_ONE_EN[topGroup] + "</p>" +
+"<ul class='keys'><li><b>First:</b> " + key1 + "</li><li><b>Second:</b> " + key2 + "</li><li><b>Third:</b> " + key3 + "</li></ul></div>";
+
+/* —— Section 2: Strength & supportive elements, in plain words —— */
+var lingTxt;
+if (monthMainWx === dayWx) lingTxt = "First, the season check — <b>in season</b>: the ruling energy of your birth month is your own element (" + WX_EN[dayWx] + "), so you were born with your own people on your side. That's a head start.";
+else if (monthMainWx === yinWx) lingTxt = "First, the season check — <b>in season</b>: the ruling energy of your birth month is " + WX_EN[monthMainWx] + ", which feeds your " + WX_EN[dayWx] + " (" + monthMainWx + " generates " + dayWx + " in the cycle). You were born with supplies built in. That's a head start.";
+else if (SHENG[dayWx] === monthMainWx) lingTxt = "First, the season check — <b>out of season</b>: the ruling energy of your birth month is " + WX_EN[monthMainWx] + ", which your element has to feed (" + dayWx + " generates " + monthMainWx + "). Like a tree giving out fruit in your birth season, your energy naturally flows outward — worth budgeting.";
+else if (KE[dayWx] === monthMainWx) lingTxt = "First, the season check — <b>out of season</b>: the ruling energy of your birth month is " + WX_EN[monthMainWx] + " — the element you control, your Wealth element. You were born reaching for goals, which costs energy; pacing matters for you.";
+else lingTxt = "First, the season check — <b>out of season</b>: the ruling energy of your birth month is " + WX_EN[monthMainWx] + ", which controls your element (" + monthMainWx + " restrains " + dayWx + "). You were born under a bit of pressure — which often forges unusually resilient people.";
+var diTxt = "Next, <b>roots</b>: in the branches of your Year, Day and Hour Pillars there are " + strength.rootCount + " hidden stems that feed or match your element — " + (strength.deDi ? "a decent root system. You're harder to knock over than you look." : "a light root system, so your environment and the company you keep matter more than average; choose both well.");
+var shiTxt = "Finally, <b>support</b>: among the stems of your Year, Month and Hour Pillars, " + strength.ganFu + " stand on your side — " + (strength.deShi ? "visible allies are not in short supply." : "visible allies are few, so your support network is something you build deliberately over time.");
+var nChecks = (strength.deLing?1:0) + (strength.deDi?1:0) + (strength.deShi?1:0);
+var verdict = "You pass " + nChecks + " of the 3 checks, so the overall verdict is: <b>" + STR_LABEL_EN[strength.label] + "</b>.";
+var xiLife = xiWx.map(function(w){ return "<b>" + WX_EN[w] + " " + w + "</b> — colours: " + WX_LIFE_EN[w].color + "; direction: " + WX_LIFE_EN[w].dir + "; fields: " + WX_CAREER_EN[w]; }).join("<br>");
+var sec2 = "<div class='psec fade-sec'><h3><span class='no'>2</span>Strength &amp; Your Supportive Elements</h3>" +
+"<p>" + lingTxt + "</p><p>" + diTxt + "</p><p>" + shiTxt + "</p><p>" + verdict + "</p>" +
+"<p><span class='concl'>Supportive elements (the simple balance method):</span> " + yongNote + "</p>" +
+"<p class='basis'>In everyday terms (for cultural interest):<br>" + xiLife + (jiWx.length ? "<br>Relatively draining for you: " + jiWx.map(function(w){ return WX_EN[w] + " " + w; }).join(", ") + " — not banned, just not where you'd push hardest on big decisions." : "") + "</p></div>";
+
+/* —— Section 3: Ten Gods, one by one —— */
+var seen = {}, ssItems = [];
+function addSS(name, pos){
+if (!name || name === "日主") return;
+var key = name + "@" + pos;
+if (seen[key]) return; seen[key] = 1;
+ssItems.push({ name:name, pos:pos });
+}
+P.forEach(function(p, i){
+if (i !== 2) addSS(p.shiShenGan, POS_NAME_EN[i]);
+addSS(p.shiShenZhi[0], POS_NAME_EN[i]);
+});
+var sec3 = "<div class='psec fade-sec'><h3><span class='no'>3</span>The Ten Gods in Your Chart</h3>" +
+"<p>Think of the Ten Gods <span style='color:var(--muted)'>(十神)</span> as ten characters who live in your chart. These are the ones in yours:</p>" +
+ssItems.map(function(it){
+return "<div class='ss-item'><span class='ss-name'>" + SS_EN[it.name] + " <span class='zh'>" + it.name + "</span></span><span class='ss-pos'>" + it.pos + "</span><p> — " + SS_PLAIN_EN[it.name] + " " + POS_PLAIN_EN[it.pos] + "</p></div>";
+}).join("") + "</div>";
+
+/* —— Section 4: Five areas of life —— */
+function dim(title, concl, basis){
+return "<div class='psec fade-sec'><h3>" + title + "</h3><p><span class='concl'>" + concl + "</span></p><p class='basis'>Why: " + basis + "</p></div>";
+}
+var personality = dim("Personality",
+strength.label === "偏强" ? "Strong-willed and action-first, you dislike being pushed around. At your best you're decisive and dependable; the thing to watch is a tendency to dig in — slow advice doesn't always get through." :
+strength.label === "偏弱" ? "Careful, observant and quietly thorough, you tend to read a room before you act. Your strengths are patience and cooperation; the thing to watch is overthinking at the moment a decision is needed." :
+"Easy-going on the surface with a firm core underneath, you adapt well without losing yourself. Calm in fair weather, resourceful in foul — you rarely go to extremes.",
+"Your Day Master is " + dayGan + " " + GAN_PY[dayGan] + " (" + WX_EN[dayWx] + " — " + GAN_IMG_EN[dayGan] + "), rated " + STR_LABEL_EN[strength.label] + " by the simple check. The loudest Ten-God family in the chart is " + GROUP_EN[topGroup] + ", appearing " + topN + " times, which is why that flavour dominates the description.");
+
+var career = dim("Career &amp; Work",
+(strength.label === "偏弱" ? "You tend to do best inside a strong system: an established organisation, a good mentor, a proven platform. Borrowed structure is not a weakness for you — it's your multiplier." :
+strength.label === "偏强" ? "You're built to carry a brief of your own: project ownership, autonomy and room to move suit you far better than close supervision." :
+"You can play it both ways: climb steadily inside an organisation, or build something of your own on the side without betting the house on it.") +
+" Fields that traditionally resonate with your element — or with the element that feeds it, " + WX_EN[yinWx] + " — tend to feel like home turf.",
+"Your Day Master element is " + WX_EN[dayWx] + "; traditionally linked fields include " + WX_CAREER_EN[dayWx] + " In your chart, Officer appears " + groups["官杀"] + " times and Resource " + groups["印"] + " times — " + (groups["官杀"] >= groups["印"] ? "Officer is louder, suggesting you get noticed fastest in structured, accountable environments with clear rules." : "Resource is louder, suggesting qualifications, credentials and good mentors are your fastest route up."));
+
+var wealth = dim("Wealth",
+groups["财"] === 0 ? "Wealth stars don't appear in your chart: money for you tends to come the unglamorous way — skill, position and steady income, accumulated over time. Fast, speculative money is traditionally not your game." :
+strength.label === "偏弱" ? "Wealth is visible but your frame is light — the classic 'more opportunity than appetite' pattern. Build capability and reserves first, prefer partnerships over solo gambles, and don't let a big target talk you into overextending." :
+"You have the frame to carry wealth: your earning routes are comparatively flexible, with room in both salary and opportunity income. The traditional caution for you is Peer-heavy years, when friends, partnerships and handshakes can get expensive — put agreements in writing.",
+"Your Wealth element is " + WX_EN[caiWx] + " (the element your Day Master controls), appearing " + groups["财"] + " times in the chart, set against a Day Master rated " + STR_LABEL_EN[strength.label] + " — " + (strength.label === "偏弱" ? "the load is heavier than the frame, which is why 'strengthen first, chase second' is the order of operations." : groups["财"] === 0 ? "with no inborn Wealth star, money is something you build rather than something that arrives." : "frame and load are reasonably matched, so the game is mostly about keeping what you earn."));
+
+var spouseStar = gender === 1 ? "Wealth stars (the partner star for men)" : "Officer stars (the partner star for women)";
+var spouseN = gender === 1 ? groups["财"] : groups["官杀"];
+var relationships = dim("Relationships",
+spouseN === 0 ? "Your partner star doesn't appear in the chart: relationships for you tend to arrive slowly and grow through familiarity — introductions and workplace circles traditionally work better than whirlwind romance, and settling later is no disadvantage in this system." :
+spouseN >= 3 ? "Your partner star is strong: you won't lack for interest or options. The traditional advice is to choose on character and reliability rather than spark alone, and to put communication and boundaries first once you commit." :
+"Your partner star is present in moderation: relationships tend to develop steadily, often from within your everyday circles. Small habits — not re-litigating old arguments, saying what you actually feel — do more for longevity than grand gestures.",
+"By the traditional reading, relationships are read from the " + spouseStar + ", which appears " + spouseN + " times here. Your Day Branch — the 'spouse palace' — holds " + ssLabel(P[2].shiShenZhi[0]) + ", the flavour closest to your intimate life.");
+
+var health = dim("Health &amp; Energy",
+WX_EN[weakest] + " is your scarcest element, traditionally corresponding to " + WX_ORGAN_EN[weakest] + ". In plain terms: regular sleep, regular meals and not running that system on fumes will serve you better than any exotic remedy.",
+"Counted the simple way, " + WX_EN[weakest] + " appears only " + wx[weakest] + " of 8 — the least of your five elements. This is a traditional Five-Element correspondence offered for cultural interest only; for anything medical, see a doctor. No medical judgement is made or implied.");
+
+var sec4 = "<div class='fade-sec' style='margin-top:20px;'><h3 style='font-size:15px;font-weight:700;margin:0 0 2px;'>Five Areas of Life — conclusions first, reasons attached</h3></div>" +
+personality + career + wealth + relationships + health;
+
+/* —— Section 5: Luck Pillars, decade by decade —— */
+function yunTheme(relWx){
+if (relWx === dayWx) return { t:"Allies &amp; Rivals", s:"your own element leads — friends, partners and competitors all arrive at once" };
+if (relWx === yinWx) return { t:"Support &amp; Study", s:"Resource leads — mentors, qualifications and elder support lean your way" };
+if (relWx === shangWx) return { t:"Talent &amp; Output", s:"Output leads — a decade to be recognised for craft, expression and ideas" };
+if (relWx === caiWx) return { t:"Money &amp; Opportunity", s:"Wealth leads — more doors to income than usual" };
+return { t:"Pressure &amp; Position", s:"Officer energy leads — responsibility, promotion tracks and scrutiny arrive together" };
+}
+function yunTone(relWx){
+var isXi = xiWx.indexOf(relWx) >= 0, isJi = jiWx.indexOf(relWx) >= 0;
+if (isXi) return "This decade runs on one of your supportive elements — the wind is behind you. Big moves are traditionally favoured here: further study, a job change, marriage, property.";
+if (isJi) return "This decade isn't one of your supportive elements — opportunity and pressure tend to arrive in the same package. Don't overreach or carry everything alone; holding your ground counts as winning.";
+return "This decade is neutral for you — no strong tailwind or headwind, so steady, competent progress is the whole game.";
+}
+var sec5 = "<div class='psec fade-sec'><h3><span class='no'>4</span>Luck Pillars, Decade by Decade</h3>" +
+chart.daYun.map(function(d, i){
+var gan = d.ganZhi.charAt(0);
+var gw = GAN_WX[gan];
+var ss = shiShenOf(dayGan, gan);
+var th = yunTheme(gw);
+return "<p class='yun-note'><b>Step " + (i+1) + " · " + d.ganZhi + " " + GAN_PY[gan] + " " + ZHI_PY[d.ganZhi.charAt(1)] + " (ages " + d.startAge + "–" + d.endAge + "):</b> the stem " + gan + " is your " + ssLabel(ss) + ", so the decade's theme is <b>" + th.t + "</b> — " + th.s + ". " + yunTone(gw) + "</p>";
+}).join("") + "</div>";
+
+/* —— Section 6: 2026 Year Ahead —— */
+var lnGZ = yearGanZhi(2026);
+var lnGan = lnGZ.charAt(0), lnWx = GAN_WX[lnGan];
+var lnSS = shiShenOf(dayGan, lnGan);
+var lnToneTxt = annualTone(lnWx, xiWx, jiWx) === "favourable" ? "Fire runs in your favour this year — a good year to push: put the thing you've been postponing on the calendar and move first." :
+annualTone(lnWx, xiWx, jiWx) === "handle-with-care" ? "Fire isn't one of your supportive elements this year — expect heat in both senses: busy, visible, a little combustible. Slow down big decisions and big purchases; let other people be in a hurry." :
+"Fire is neutral for you this year — no special tailwind, no special headwind. Solid, unglamorous progress beats clever moves.";
+var sec6 = "<div class='psec fade-sec'><h3><span class='no'>5</span>2026 Year Ahead · " + lnGZ + "</h3>" +
+"<p>2026 is the year of " + lnGZ + " (" + GAN_PY[lnGan] + " " + ZHI_PY[lnGZ.charAt(1)] + "). Its stem, " + lnGan + ", is your <b>" + ssLabel(lnSS) + "</b>, and the year's ruling energy is Fire at full strength. For you: " + lnToneTxt + "</p></div>";
+
+return "<h2>Your Reading, in Plain English <span class='zh'>白话解析</span></h2>" +
+"<p class='lead'>No jargon degree required. Below, your chart is translated into ordinary language: who you are, which elements support you, and what each decade tends to bring. This is a traditional folk reading for entertainment — it deals in tendencies, never certainties.</p>" +
+sec1 + sec2 + sec3 + sec4 + sec5 + sec6;
+}
+
+/* ============================================================
+PREMIUM FULL REPORT — locked preview.
+Real previews are generated from the chart data where possible
+(first years / first months); the rest renders in a locked state.
+Checkout is NOT implemented: see PAYMENT_LINK at the top.
+============================================================ */
+var MONTH_GAN_START = { "甲":2, "己":2, "乙":4, "庚":4, "丙":6, "辛":6, "丁":8, "壬":8, "戊":0, "癸":0 }; /* stem index of Yin month by year stem */
+var MONTH_NAMES = ["Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan"];
+function buildPremium(chart, xiWx, jiWx){
+var dayGan = chart.dayGan, dayWx = GAN_WX[dayGan];
+
+/* Year-by-year: real briefs for 2026 & 2027, locked rows after */
+var yearRows = "";
+for (var y = 2026; y <= 2035; y++){
+var gz = yearGanZhi(y), g = gz.charAt(0), gw = GAN_WX[g];
+var ss = shiShenOf(dayGan, g);
+var tone = annualTone(gw, xiWx, jiWx);
+if (y <= 2027){
+var toneTxt = tone === "favourable" ? "a supportive year — push" : tone === "handle-with-care" ? "a demanding year — pace yourself" : "a steady year — basics win";
+yearRows += "<div class='p-row'><span class='yr'>" + y + " · " + gz + "</span><span>" + ssLabel(ss) + " year, " + WX_EN[gw] + " leads — " + toneTxt + ".</span></div>";
+} else {
+yearRows += "<div class='p-row locked'><span class='yr'>" + y + " · " + gz + "</span><span class='blur'>" + ssLabel(ss) + " year — full reading with key months, risks and timing.</span><span class='lock'>🔒 Locked</span></div>";
+}
+}
+
+/* Monthly highlights for 2026: real briefs Feb–Apr (solar months), locked after */
+var yGan = yearGanZhi(2026).charAt(0);
+var startIdx = MONTH_GAN_START[yGan];
+var monthRows = "";
+for (var m = 0; m < 12; m++){
+var mGan = GAN10[(startIdx + m) % 10], mZhi = ZHI12[(2 + m) % 12]; /* Yin month branch index 2 */
+var mss = shiShenOf(dayGan, mGan);
+var label = MONTH_NAMES[m] + " 2026" + (m === 11 ? "–27" : "") + " · " + mGan + mZhi;
+if (m < 3){
+monthRows += "<div class='p-row'><span class='yr'>" + label + "</span><span>" + ssLabel(mss) + " month — " + (annualTone(GAN_WX[mGan], xiWx, jiWx) === "favourable" ? "supportive stretch, good for launches and asks." : annualTone(GAN_WX[mGan], xiWx, jiWx) === "handle-with-care" ? "a stretch to keep tidy: contracts, temper, spending." : "an ordinary stretch — routine progress.") + "</span></div>";
+} else {
+monthRows += "<div class='p-row locked'><span class='yr'>" + label + "</span><span class='blur'>" + ssLabel(mss) + " month — detailed highlights and dates.</span><span class='lock'>🔒 Locked</span></div>";
+}
+}
+
+var compatRow = "<div class='p-row locked'><span class='yr'>Two-chart match</span><span class='blur'>Add a partner's birth details to compare Day Masters, element balance and friction points.</span><span class='lock'>🔒 Locked</span></div>";
+
+var btnHtml = PAYMENT_LINK ?
+"<a class='p-btn' href='" + PAYMENT_LINK + "' target='_blank' rel='noopener'>Get the Full Report</a>" :
+"<button class='p-btn' type='button' disabled>Coming Soon</button>";
+
+return "<div class='p-head'><span class='tag'>Premium</span><h3>Premium Full Report</h3>" +
+"<p>Your free reading above covers the chart itself. The full report goes further — every year, every month, and a two-chart compatibility reading.</p></div>" +
+"<div class='p-body'>" +
+"<div class='p-feat'><h4>Year-by-Year Outlook 2026–2035 <span class='zh'>逐年运势</span></h4>" + yearRows + "</div>" +
+"<div class='p-feat'><h4>Monthly Highlights · 2026 <span class='zh'>逐月要点</span></h4>" + monthRows + "</div>" +
+"<div class='p-feat'><h4>Compatibility Snapshot <span class='zh'>合婚提示</span></h4>" + compatRow + "</div>" +
+"</div>" +
+"<div class='p-cta'><div class='price-note'>One report: all ten years, all twelve months, compatibility included.</div>" + btnHtml + "</div>";
+}
+
+/* ============================================================
+SOUND — WebAudio, fully synthesized, OFF by default (single toggle).
+============================================================ */
+var SND = { on:false, ctx:null };
+var REDUCED = (typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+function audioCtx(){
+if (!SND.on) return null;
+try {
+if (!SND.ctx) {
+var AC = window.AudioContext || window.webkitAudioContext;
+if (!AC) return null;
+SND.ctx = new AC();
+}
+if (SND.ctx.state === "suspended") SND.ctx.resume();
+return SND.ctx;
+} catch(e){ return null; }
+}
+function envGain(ctx, t0, peak, decay){
+var g = ctx.createGain();
+g.gain.setValueAtTime(0.0001, t0);
+g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+g.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
+g.connect(ctx.destination);
+return g;
+}
+function playChime(freq, vol){
+var ctx = audioCtx(); if (!ctx) return;
+var t = ctx.currentTime;
+[[1, 1], [2.76, 0.35], [5.4, 0.12]].forEach(function(part){
+var o = ctx.createOscillator();
+o.type = "sine"; o.frequency.value = freq * part[0];
+o.connect(envGain(ctx, t, (vol || 0.16) * part[1], 1.9));
+o.start(t); o.stop(t + 2);
+});
+}
+function playGong(){
+var ctx = audioCtx(); if (!ctx) return;
+var t = ctx.currentTime;
+[82.4, 110, 164.8, 220].forEach(function(f, i){
+var o = ctx.createOscillator();
+o.type = "sine"; o.frequency.value = f;
+o.connect(envGain(ctx, t, 0.14 / (i + 1), 3.2));
+o.start(t); o.stop(t + 3.4);
+});
+}
+function playWood(){
+var ctx = audioCtx(); if (!ctx) return;
+var t = ctx.currentTime;
+var o = ctx.createOscillator();
+o.type = "square";
+o.frequency.setValueAtTime(880, t);
+o.frequency.exponentialRampToValueAtTime(320, t + 0.07);
+o.connect(envGain(ctx, t, 0.07, 0.09));
+o.start(t); o.stop(t + 0.1);
+}
+
+/* ============================================================
+BACKGROUND — sparse drifting gold dust (kept light for mobile).
+============================================================ */
+(function initParticles(){
+if (REDUCED) return;
+var cv = document.getElementById("bgCanvas");
+if (!cv || !cv.getContext) return;
+var ctx = cv.getContext("2d");
+if (!ctx) return;
+var W, H, dots = [];
+function resize(){
+W = cv.width = window.innerWidth; H = cv.height = window.innerHeight;
+var n = Math.min(48, Math.max(18, Math.floor(W / 22)));
+dots = [];
+for (var i = 0; i < n; i++){
+dots.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.6+0.5,
+vy:-(Math.random()*0.14+0.04), vx:(Math.random()-0.5)*0.07,
+ph:Math.random()*6.28, sp:Math.random()*0.012+0.004 });
+}
+}
+resize();
+window.addEventListener("resize", resize);
+(function loop(){
+ctx.clearRect(0, 0, W, H);
+for (var i = 0; i < dots.length; i++){
+var d = dots[i];
+d.y += d.vy; d.x += d.vx; d.ph += d.sp;
+if (d.y < -4){ d.y = H + 4; d.x = Math.random() * W; }
+if (d.x < -4) d.x = W + 4; if (d.x > W + 4) d.x = -4;
+var a = 0.18 + 0.35 * Math.abs(Math.sin(d.ph));
+ctx.beginPath();
+ctx.arc(d.x, d.y, d.r, 0, 6.283);
+ctx.fillStyle = "rgba(232,207,122," + a.toFixed(3) + ")";
+ctx.fill();
+}
+requestAnimationFrame(loop);
+})();
+})();
+
+/* ============================================================
+RENDERING
+============================================================ */
+function $(id){ return document.getElementById(id); }
+function showErr(msg){ var e = $("errBox"); e.textContent = msg; e.style.display = "block"; }
+function hideErr(){ $("errBox").style.display = "none"; }
+
+document.querySelectorAll("#genderBox label").forEach(function(lab){
+lab.addEventListener("click", function(){
+document.querySelectorAll("#genderBox label").forEach(function(x){ x.classList.remove("on"); });
+lab.classList.add("on");
+playWood();
+});
+});
+$("sndBtn").addEventListener("click", function(){
+SND.on = !SND.on;
+this.textContent = SND.on ? "♪ Sound: On" : "♪ Sound: Off";
+this.classList.toggle("on", SND.on);
+if (SND.on) playWood();
+});
+
+var fadeIO = null;
+function armFadeIns(scope){
+var els = scope.querySelectorAll(".fade-sec");
+if (typeof IntersectionObserver === "undefined"){
+els.forEach(function(el){ el.classList.add("vis"); });
+return;
+}
+if (!fadeIO){
+fadeIO = new IntersectionObserver(function(entries){
+entries.forEach(function(en){
+if (en.isIntersecting){ en.target.classList.add("vis"); fadeIO.unobserve(en.target); }
+});
+}, { threshold: 0.1 });
+}
+els.forEach(function(el){ fadeIO.observe(el); });
+}
+
+function countUp(el, target, suffix){
+if (REDUCED){ el.textContent = target + suffix; return; }
+var t0 = null;
+function step(ts){
+if (!t0) t0 = ts;
+var p = Math.min(1, (ts - t0) / 900);
+el.textContent = Math.round(target * (0.2 + 0.8 * p)) + suffix;
+if (p < 1) requestAnimationFrame(step);
+else el.textContent = target + suffix;
+}
+requestAnimationFrame(step);
+}
+
+$("goBtn").addEventListener("click", function(){
+hideErr();
+playWood();
+var dateVal = $("birthDate").value;
+if (!dateVal){ showErr("Please enter your date of birth first."); return; }
+var parts = dateVal.split("-").map(Number);
+var hour, minute = 0, timeNote = "";
+var timeVal = $("birthTime").value;
+if (timeVal){
+var tp = timeVal.split(":").map(Number); hour = tp[0]; minute = tp[1] || 0;
+timeNote = "born at " + timeVal;
+} else if ($("shichen").value !== ""){
+hour = Number($("shichen").value); minute = 0;
+timeNote = "born in the " + $("shichen").options[$("shichen").selectedIndex].text + " block (midpoint used)";
+} else {
+showErr("Please enter a time of birth, or at least pick the two-hour block."); return;
+}
+var gender = Number(document.querySelector('input[name="gender"]:checked').value);
+
+var chart;
+try {
+chart = computeChart({ year:parts[0], month:parts[1], day:parts[2], hour:hour, minute:minute, gender:gender });
+} catch(e){
+showErr(typeof Solar === "undefined" ? "The calendar library failed to load — please check your connection and refresh." : (e.message || String(e)));
+return;
+}
+
+var wx = countWuXing(chart.pillars);
+var strength = judgeStrength(chart.pillars);
+var groups = countShiShenGroups(chart.pillars);
+
+/* Supportive elements, recomputed for the Premium previews (same rule as the reading) */
+var dayWx = GAN_WX[chart.dayGan];
+var sortedWx2 = WX_LIST.slice().sort(function(a,b){ return wx[a]-wx[b]; });
+var xiWx, jiWx;
+if (strength.label === "偏弱"){ xiWx = [shengWo(dayWx), dayWx]; jiWx = [keWo(dayWx), KE[dayWx]]; }
+else if (strength.label === "偏强"){ xiWx = [SHENG[dayWx], KE[dayWx], keWo(dayWx)]; jiWx = [shengWo(dayWx), dayWx]; }
+else { xiWx = [sortedWx2[0]]; jiWx = []; }
+
+$("headInfo").innerHTML =
+"Born " + dateVal + ", " + timeNote + " · " + (gender === 1 ? "Male" : "Female") + "<br>" +
+"Lunar date: " + chart.lunarText + " · Life Palace 命宫 " + chart.mingGong + " · Body Palace 身宫 " + chart.shenGong + " · Fetal Origin 胎元 " + chart.taiYuan;
+
+function stampAttr(i){
+if (REDUCED) return "";
+return " class='stamp' style='animation-delay:" + (0.15 + i * 0.45).toFixed(2) + "s'";
+}
+function stemCell(p){
+return "<div class='gz'><span class='" + WX_CLASS[GAN_WX[p.gan]] + "'>" + p.gan + "</span><span class='pinyin'>" + GAN_PY[p.gan] + "</span></div><div class='sub'>" + p.shiShenGan + "<span class='en'>" + (SS_EN[p.shiShenGan] || "") + "</span></div>";
+}
+function branchCell(p){
+var zhiWx = GAN_WX[p.hideGan[0]];
+var ssHtml = p.shiShenZhi.map(function(s){ return s + " " + (SS_EN[s] || s); }).join(" · ");
+return "<div class='gz'><span class='" + WX_CLASS[zhiWx] + "'>" + p.zhi + "</span><span class='pinyin'>" + ZHI_PY[p.zhi] + "</span></div><div class='sub'>" + ssHtml + "</div>";
+}
+var html = "<tr><th></th>" + POS_NAME_EN.map(function(n){ return "<th>" + n + "</th>"; }).join("") + "</tr>";
+html += "<tr><td class='lab'>Heavenly Stem 天干</td>" + chart.pillars.map(function(p,i){ return "<td" + stampAttr(i) + ">" + stemCell(p) + "</td>"; }).join("") + "</tr>";
+html += "<tr><td class='lab'>Earthly Branch 地支</td>" + chart.pillars.map(function(p,i){ return "<td" + stampAttr(i) + ">" + branchCell(p) + "</td>"; }).join("") + "</tr>";
+html += "<tr><td class='lab'>Hidden Stems 藏干</td>" + chart.pillars.map(function(p){
+return "<td class='sub' style='font-size:13px;color:var(--text);'>" + p.hideGan.map(function(g){ return g + " " + GAN_PY[g]; }).join(" · ") + "</td>"; }).join("") + "</tr>";
+html += "<tr><td class='lab'>Na Yin 纳音</td>" + chart.pillars.map(function(p){
+return "<td class='sub' style='font-size:13px;color:var(--text);'>" + p.naYin + "</td>"; }).join("") + "</tr>";
+$("panTable").innerHTML = html;
+
+if (!REDUCED){
+var CHIME_SEQ = [659.25, 587.33, 523.25, 440];
+var card = $("shareCard");
+for (var ci = 0; ci < 4; ci++){
+(function(idx){
+setTimeout(function(){
+playChime(CHIME_SEQ[idx], 0.15);
+card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+}, 150 + idx * 450);
+})(ci);
+}
+setTimeout(function(){ playGong(); }, 150 + 4 * 450 + 120);
+}
+
+$("dmBig").textContent = chart.dayGan;
+$("dmTxt").innerHTML = "Day Master: <b>" + chart.dayGan + " " + GAN_PY[chart.dayGan] + " · " + WX_EN[dayWx] + "</b> (" + GAN_IMG_EN[chart.dayGan] + ")<br>" +
+"Strength (simple check): <b>" + STR_LABEL_EN[strength.label] + "</b> · Ten Gods — Wealth " + groups["财"] + " / Officer " + groups["官杀"] + " / Resource " + groups["印"] + " / Peer " + groups["比劫"] + " / Output " + groups["食伤"];
+
+$("wxBars").innerHTML = WX_LIST.map(function(w){
+return "<div class='wx-row'><div class='name' style='color:" + WX_COLOR[w] + "'>" + WX_EN[w] + "<span class='zh'>" + w + "</span></div>" +
+"<div class='bar'><div class='fill' data-w='" + wx[w] + "' style='background:" + WX_COLOR[w] + "'></div></div>" +
+"<div class='num' data-n='" + wx[w] + "'>0</div></div>";
+}).join("");
+$("wxNote").textContent = "How we count: each of the four Heavenly Stems counts once, plus the main hidden stem of each Earthly Branch — 8 points in total. Minor hidden stems are not counted. A missing element doesn't mean a bad chart; it means that energy is quiet rather than absent from your life.";
+requestAnimationFrame(function(){ requestAnimationFrame(function(){
+document.querySelectorAll("#wxBars .fill").forEach(function(f){
+f.style.width = (Number(f.getAttribute("data-w")) / 8 * 100) + "%";
+});
+document.querySelectorAll("#wxBars .num").forEach(function(el){
+countUp(el, Number(el.getAttribute("data-n")), "");
+});
+});});
+
+function chk(ok, name, desc){ return "<div class='chk" + (ok ? " yes" : "") + "'><b>" + name + (ok ? " ✓" : " ✗") + "</b>" + desc + "</div>"; }
+$("strengthBox").innerHTML =
+chk(strength.deLing, "In Season 得令", "birth month's main energy " + (strength.deLing ? "supports you" : "doesn't support you")) +
+chk(strength.deDi, "Rooted 得地", strength.rootCount + " supporting hidden stems in the other branches") +
+chk(strength.deShi, "Backed 得势", strength.ganFu + " supporting stems above ground");
+$("strengthNote").textContent = "The simple method: 2 or 3 passes = Strong, 1 pass = Balanced, 0 = Tender. It ignores root depth and stem combinations, so treat it as a first approximation — the plain-English version is in the reading below.";
+
+$("yunInfo").innerHTML = (chart.yun.forward ? "Forward 顺排" : "Reversed 逆排") +
+" · Luck begins after " + chart.yun.startYear + " years, " + chart.yun.startMonth + " months and " + chart.yun.startDay + " days (from " + chart.yun.startSolar + ")" +
+"<br>The start age is converted from the distance to the neighbouring solar term (the 'three days = one year' rule, library sect=2).";
+var yh = "<tr><th>Step</th><th>Luck Pillar</th><th>Ages</th><th>Years</th></tr>";
+chart.daYun.forEach(function(d, i){
+yh += "<tr class='yun-in' style='animation-delay:" + (REDUCED ? 0 : (0.25 + i * 0.09)).toFixed(2) + "s'><td>" + (i+1) + "</td><td class='gzcell'>" + d.ganZhi + "<span class='py'>" + GAN_PY[d.ganZhi.charAt(0)] + " " + ZHI_PY[d.ganZhi.charAt(1)] + "</span></td><td>" + d.startAge + "–" + d.endAge + "</td><td>" + d.startYear + "–" + d.endYear + "</td></tr>";
+});
+$("yunTable").innerHTML = yh;
+
+$("plainBox").innerHTML = buildPlain(chart, wx, strength, groups, gender);
+armFadeIns($("plainBox"));
+
+$("premiumBox").innerHTML = buildPremium(chart, xiWx, jiWx);
+
+var resEl = $("result");
+resEl.classList.remove("show"); void resEl.offsetWidth;
+resEl.style.display = "block";
+resEl.classList.add("show");
+if (resEl.scrollIntoView){ try { resEl.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block:"start" }); } catch(e){ resEl.scrollIntoView(); } }
+});
+
+</script>
+</body>
+</html>
